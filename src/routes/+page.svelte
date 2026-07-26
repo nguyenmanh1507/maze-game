@@ -4,6 +4,10 @@
 	import { maze1 } from '$lib/maze/maze-sample'
 </script>
 
+<svelte:head>
+	<title>Maze</title>
+</svelte:head>
+
 <MainNav />
 
 <main class="container mx-auto p-5">

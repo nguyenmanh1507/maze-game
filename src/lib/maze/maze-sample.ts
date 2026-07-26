@@ -1,4 +1,4 @@
-import type { MazeModel } from './maze-model'
+import type { MazeModelV1 } from './maze-model'
 
 const gridSize = 4
 const cellSize = 100
@@ -69,7 +69,8 @@ const edges = Object.fromEntries(
 				to,
 				path: {
 					type: 'catmull-rom' as const,
-					points: [nodes[from].position, nodes[to].position]
+					points: [nodes[from].position, nodes[to].position],
+					tension: 0
 				},
 				width: 12
 			}
@@ -77,7 +78,7 @@ const edges = Object.fromEntries(
 	})
 )
 
-export const maze1: MazeModel = {
+export const maze1: MazeModelV1 = {
 	schemaVersion: 1,
 	board: {
 		radius: 280,
