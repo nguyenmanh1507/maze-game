@@ -131,3 +131,41 @@ export function cloneVec2(value: Vec2): Vec2 {
 		y: value.y
 	}
 }
+
+export type RandomSource = () => number
+
+/**
+ * Mulberry32 seeded pseudo-random generator.
+ */
+export function createSeededRandom(seed: number): RandomSource {
+	let state = seed >>> 0
+
+	return () => {
+		state += 0x6d2b79f5
+
+		let value = state
+
+		value = Math.imul(value ^ (value >>> 15), value | 1)
+
+		value ^= value + Math.imul(value ^ (value >>> 7), value | 61)
+
+		return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296
+	}
+}
+
+export function chooseRandom<T>(values: readonly T[], random: RandomSource): T | undefined {
+	if (values.length === 0) {
+		return undefined
+	}
+
+	const index = Math.floor(random() * values.length)
+
+	return values[index]
+}
+
+export function cloneMazeModel(model: MazeModelV1): MazeModelV1 {
+	/*
+	 * MazeModelV1 chỉ chứa JSON-compatible data.
+	 */
+	return JSON.parse(JSON.stringify(model)) as MazeModelV1
+}

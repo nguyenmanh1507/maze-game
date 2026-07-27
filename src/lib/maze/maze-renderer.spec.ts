@@ -41,4 +41,29 @@ describe('renderRectangularMaze', () => {
 			expect(path.path[1][0]).toBe('L')
 		}
 	})
+
+	it('renders a green path for a supplied solution', () => {
+		const { model, layout } = createBlankGridMaze({ rows: 1, columns: 2 })
+
+		const result = renderRectangularMaze(createCanvasDouble(), model, {
+			solutionNodeIds: layout.cells[0]
+		})
+
+		const solutionPath = result.objects.find(
+			(object): object is Path => object instanceof Path && object.stroke === '#22c55e'
+		)
+
+		expect(solutionPath?.path).toEqual([
+			['M', expect.any(Number), expect.any(Number)],
+			['L', expect.any(Number), expect.any(Number)]
+		])
+	})
+
+	it('rejects solution paths that reference missing nodes', () => {
+		const { model } = createBlankGridMaze({ rows: 1, columns: 1 })
+
+		expect(() =>
+			renderRectangularMaze(createCanvasDouble(), model, { solutionNodeIds: ['missing-node'] })
+		).toThrow('Solution references missing node "missing-node".')
+	})
 })

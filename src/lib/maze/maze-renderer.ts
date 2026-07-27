@@ -53,6 +53,14 @@ export interface MazeRendererOptions {
 	passageDebugWidth?: number
 
 	/**
+	 * Node IDs in solution order, from start to goal.
+	 */
+	solutionNodeIds?: readonly string[]
+
+	solutionColor?: string
+	solutionWidth?: number
+
+	/**
 	 * Hiển thị tâm của từng node.
 	 */
 	showNodes?: boolean
@@ -200,10 +208,16 @@ export function renderRectangularMaze(
 		})
 	)
 
-	// 4. Start, goal, hole
+	// 4. Solution overlay
+	const solutionObject = createSolutionObject(model, transform, options)
+	if (solutionObject) {
+		objects.push(solutionObject)
+	}
+
+	// 5. Start, goal, hole
 	objects.push(...createFeatureObjects(model, transform, options))
 
-	// 5. Node debug overlay
+	// 6. Node debug overlay
 	if (options.showNodes) {
 		objects.push(...createNodeDebugObjects(grid, transform, options))
 	}
@@ -257,6 +271,50 @@ export function renderRectangularMaze(
 			canvas.requestRenderAll()
 		}
 	}
+}
+
+function createSolutionObject(
+	model: MazeModelV1,
+	transform: CoordinateTransform,
+	options: MazeRendererOptions
+): Path | undefined {
+	const nodeIds = options.solutionNodeIds
+
+	if (!nodeIds) {
+		return undefined
+	}
+
+	const points = nodeIds.map((nodeId) => {
+		const node = model.nodes[nodeId]
+
+		if (!node) {
+			throw new Error(`Solution references missing node "${nodeId}".`)
+		}
+
+		return transform.worldToCanvas(node.position)
+	})
+
+	if (points.length < 2) {
+		return undefined
+	}
+
+	const commands: Array<['M', number, number] | ['L', number, number]> = [
+		['M', points[0].x, points[0].y],
+		...points.slice(1).map((point): ['L', number, number] => ['L', point.x, point.y])
+	]
+
+	return new Path(
+		commands,
+		{
+			stroke: options.solutionColor ?? '#22c55e',
+			strokeWidth: options.solutionWidth ?? 5,
+			strokeLineCap: 'round',
+			strokeLineJoin: 'round',
+			fill: undefined,
+			selectable: false,
+			evented: false
+		}
+	)
 }
 
 /* -------------------------------------------------------------------------- */

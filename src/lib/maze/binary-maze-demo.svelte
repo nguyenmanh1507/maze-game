@@ -3,6 +3,7 @@
 	import type { Canvas } from 'fabric'
 	import { Canvas as FabricCanvas } from 'fabric'
 	import { createBlankGridMaze, type MazeModelV1 } from './maze-model'
+	import { solveMazeDijkstra } from './maze-dijkstra-solver'
 	import { renderRectangularMaze } from './maze-renderer'
 	import { generateBinaryTreeMaze } from './maze-binary-tree-generator'
 
@@ -53,9 +54,17 @@
 			wallHeight: 0.012
 		})
 
-		const maze = generateBinaryTreeMaze(draft, { seed: 66 })
+		const randomSeed = Math.floor(Math.random() * 100)
+		const maze = generateBinaryTreeMaze(draft, { seed: randomSeed  })
+		const solution = solveMazeDijkstra(maze)
 
-		renderRectangularMaze(fabricCanvas, maze, { showPassages: true })
+		renderRectangularMaze(fabricCanvas, maze, {
+			showNodes: true,
+			showPassages: true,
+			nodeDebugRadius: 4,
+			passageDebugWidth: 3,
+			solutionNodeIds: solution.nodeIds
+		})
 
 		return () => {
 			disposed = true
@@ -66,6 +75,8 @@
 </script>
 
 <section class="space-y-4" aria-labelledby="fabric-demo-title">
+	<h3>Binary Tree Maze</h3>
+
 	{#if errorMessage}
 		<p class="alert alert-error" role="alert">{errorMessage}</p>
 	{:else}
