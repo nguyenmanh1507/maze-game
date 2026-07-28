@@ -1,7 +1,6 @@
 <script lang="ts">
 	import MainNav from '$lib/main-nav.svelte'
 	import BinaryMazeDemo from '$lib/maze/binary-maze-demo.svelte'
-	import { maze1 } from '$lib/maze/maze-sample'
 	import SidewinderMaze from '$lib/maze/sidewinder-maze.svelte'
 </script>
 
@@ -13,7 +12,7 @@
 
 <main class="container mx-auto p-5">
 	<section class="mt-8 flex flex-col items-center justify-center gap-y-5">
-		<BinaryMazeDemo maze={maze1} />
-		<SidewinderMaze maze={maze1} />
+		<BinaryMazeDemo />
+		<SidewinderMaze />
 	</section>
 </main>

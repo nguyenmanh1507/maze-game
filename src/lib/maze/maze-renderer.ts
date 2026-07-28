@@ -1,5 +1,6 @@
 import type { Canvas, StaticCanvas } from 'fabric'
 import { Circle, Path, Rect } from 'fabric'
+import type { MazeDistanceField } from './maze-dijkstra-solver'
 import type { MazeModelV1, Vec2 } from './maze-model'
 
 export type MazeFabricCanvas = Canvas | StaticCanvas
@@ -19,6 +20,11 @@ export interface MazeRendererOptions {
 
 	boardFill?: string
 	wallColor?: string
+
+	/**
+	 * Khoảng cách từ start dùng để tô màu nền từng cell.
+	 */
+	distanceField?: MazeDistanceField
 
 	/**
 	 * Độ dày tường bên trong, đơn vị pixel.
@@ -193,12 +199,17 @@ export function renderRectangularMaze(
 	// 1. Board background
 	objects.push(createBoardBackground(transform.canvasBounds, options.boardFill ?? '#f4f0e8'))
 
-	// 2. Passage debug overlay
+	// 2. Distance heatmap
+	if (options.distanceField) {
+		objects.push(...createDistanceHeatmapObjects(grid, transform, options.distanceField))
+	}
+
+	// 3. Passage debug overlay
 	if (options.showPassages) {
 		objects.push(...createPassageDebugObjects(model, grid, transform, options))
 	}
 
-	// 3. Maze walls
+	// 4. Maze walls
 	objects.push(
 		...createWallObjects(grid, passageSet, transform, {
 			wallColor: options.wallColor ?? '#172033',
@@ -208,16 +219,16 @@ export function renderRectangularMaze(
 		})
 	)
 
-	// 4. Solution overlay
+	// 5. Solution overlay
 	const solutionObject = createSolutionObject(model, transform, options)
 	if (solutionObject) {
 		objects.push(solutionObject)
 	}
 
-	// 5. Start, goal, hole
+	// 6. Start, goal, hole
 	objects.push(...createFeatureObjects(model, transform, options))
 
-	// 6. Node debug overlay
+	// 7. Node debug overlay
 	if (options.showNodes) {
 		objects.push(...createNodeDebugObjects(grid, transform, options))
 	}
@@ -303,18 +314,15 @@ function createSolutionObject(
 		...points.slice(1).map((point): ['L', number, number] => ['L', point.x, point.y])
 	]
 
-	return new Path(
-		commands,
-		{
-			stroke: options.solutionColor ?? '#22c55e',
-			strokeWidth: options.solutionWidth ?? 5,
-			strokeLineCap: 'round',
-			strokeLineJoin: 'round',
-			fill: undefined,
-			selectable: false,
-			evented: false
-		}
-	)
+	return new Path(commands, {
+		stroke: options.solutionColor ?? '#22c55e',
+		strokeWidth: options.solutionWidth ?? 5,
+		strokeLineCap: 'round',
+		strokeLineJoin: 'round',
+		fill: undefined,
+		selectable: false,
+		evented: false
+	})
 }
 
 /* -------------------------------------------------------------------------- */
@@ -657,6 +665,73 @@ function createBoardBackground(bounds: MazeCanvasBounds, fill: string): Rect {
 		selectable: false,
 		evented: false
 	})
+}
+
+function createDistanceHeatmapObjects(
+	grid: InferredRectangularGrid,
+	transform: CoordinateTransform,
+	distanceField: MazeDistanceField
+): Rect[] {
+	const cells: Rect[] = []
+
+	for (const row of grid.cells) {
+		for (const cell of row) {
+			const distance = distanceField.distances.get(cell.nodeId)
+
+			if (distance === undefined) {
+				continue
+			}
+
+			const intensity =
+				distanceField.maximumDistance === 0
+					? 1
+					: Math.max(
+							0,
+							Math.min(
+								1,
+								(distanceField.maximumDistance - distance) / distanceField.maximumDistance
+							)
+						)
+
+			const topLeft = transform.worldToCanvas({
+				x: grid.xBoundaries[cell.column],
+				y: grid.yBoundaries[cell.row]
+			})
+			const bottomRight = transform.worldToCanvas({
+				x: grid.xBoundaries[cell.column + 1],
+				y: grid.yBoundaries[cell.row + 1]
+			})
+
+			cells.push(
+				new Rect({
+					left: topLeft.x,
+					top: topLeft.y,
+					width: bottomRight.x - topLeft.x,
+					height: bottomRight.y - topLeft.y,
+					originX: 'left',
+					originY: 'top',
+					fill: interpolateDistanceColor(intensity),
+					strokeWidth: 0,
+					selectable: false,
+					evented: false
+				})
+			)
+		}
+	}
+
+	return cells
+}
+
+function interpolateDistanceColor(intensity: number): string {
+	const light = [238, 242, 255]
+	const dark = [49, 46, 129]
+
+	const channels = light.map((lightChannel, index) => {
+		const darkChannel = dark[index]
+		return Math.round(darkChannel + (lightChannel - darkChannel) * intensity)
+	})
+
+	return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
 }
 
 /* -------------------------------------------------------------------------- */

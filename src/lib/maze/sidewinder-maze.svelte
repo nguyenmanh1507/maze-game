@@ -3,11 +3,14 @@
 	import type { Canvas } from 'fabric'
 	import { Canvas as FabricCanvas } from 'fabric'
 	import { createBlankGridMaze, type MazeModelV1 } from './maze-model'
-	import { solveMazeDijkstra } from './maze-dijkstra-solver'
+	import {
+		calculateMazeDistanceField,
+		solveMazeDijkstra,
+		type MazeDistanceField,
+		type MazeSolution
+	} from './maze-dijkstra-solver'
 	import { renderRectangularMaze } from './maze-renderer'
 	import { generateSidewinderMaze } from './maze-sidewinder-generator'
-
-	let { maze }: { maze: MazeModelV1 } = $props()
 
 	let canvasElement = $state<HTMLCanvasElement>()
 	let fabricCanvas: Canvas | undefined
@@ -15,59 +18,61 @@
 	let wallCount = $state(0)
 	let errorMessage = $state('')
 	let isReady = $state(false)
+	let generatedMaze = $state<MazeModelV1>()
+	let solution = $state<MazeSolution>()
+	let distanceField = $state<MazeDistanceField>()
+	let showDistanceHeatmap = $state(false)
 
 	function redrawMaze() {
-		if (!fabricCanvas) return
+		if (!fabricCanvas || !generatedMaze || !solution || !distanceField) return
 
-		// renderMaze(fabricCanvas, fabric, maze)
-		wallCount = Object.keys(maze.edges).length
-	}
+		wallCount = Object.keys(generatedMaze.edges).length
 
-	onMount(() => {
-		let disposed = false
-
-		void (async () => {
-			try {
-				if (disposed) return
-				if (!canvasElement) {
-					errorMessage = 'The Fabric.js canvas could not be initialized.'
-					return
-				}
-
-				fabricCanvas = new FabricCanvas(canvasElement, {
-					backgroundColor: '#f0f0f0',
-					selection: false
-				})
-				redrawMaze()
-				isReady = true
-			} catch {
-				errorMessage = 'The Fabric.js canvas could not be loaded.'
-			}
-		})()
-
-		if (!fabricCanvas) return
-
-		const draft = createBlankGridMaze({
-			rows: 10,
-			columns: 10,
-			boardRadius: 0.1,
-			wallHeight: 0.012
-		})
-
-		const randomSeed = Math.floor(Math.random() * 100)
-		const maze = generateSidewinderMaze(draft, { seed: randomSeed })
-		const solution = solveMazeDijkstra(maze)
-
-		renderRectangularMaze(fabricCanvas, maze, {
+		renderRectangularMaze(fabricCanvas, generatedMaze, {
 			showNodes: true,
 			showPassages: true,
 			nodeDebugRadius: 4,
 			passageDebugWidth: 3,
-			solutionNodeIds: solution.nodeIds
+			distanceField: showDistanceHeatmap ? distanceField : undefined,
+			solutionNodeIds: showDistanceHeatmap ? undefined : solution.nodeIds
 		})
+	}
+
+	function toggleDistanceHeatmap() {
+		showDistanceHeatmap = !showDistanceHeatmap
+		redrawMaze()
+	}
+
+	onMount(() => {
+		try {
+			if (!canvasElement) {
+				errorMessage = 'The Fabric.js canvas could not be initialized.'
+				return
+			}
+
+			fabricCanvas = new FabricCanvas(canvasElement, {
+				backgroundColor: '#f0f0f0',
+				selection: false
+			})
+
+			const draft = createBlankGridMaze({
+				rows: 10,
+				columns: 10,
+				boardRadius: 0.1,
+				wallHeight: 0.012
+			})
+
+			const randomSeed = Math.floor(Math.random() * 100)
+			generatedMaze = generateSidewinderMaze(draft, { seed: randomSeed })
+			solution = solveMazeDijkstra(generatedMaze)
+			distanceField = calculateMazeDistanceField(generatedMaze)
+			isReady = true
+			redrawMaze()
+		} catch {
+			errorMessage = 'The Fabric.js canvas could not be loaded.'
+		}
 
 		return () => {
-			disposed = true
 			void fabricCanvas?.dispose()
 			fabricCanvas = undefined
 		}
@@ -87,8 +92,20 @@
 
 		<div class="flex flex-wrap items-center gap-3">
 			<button class="btn" type="button" onclick={redrawMaze} disabled={!isReady}> Reset </button>
+			<button
+				class:btn-active={showDistanceHeatmap}
+				class="btn"
+				type="button"
+				onclick={toggleDistanceHeatmap}
+				aria-pressed={showDistanceHeatmap}
+				disabled={!isReady}
+			>
+				Tô màu theo khoảng cách
+			</button>
 			<p role="status" aria-live="polite">
-				{isReady ? `${wallCount} walls` : 'Loading canvas…'}
+				{isReady
+					? `${wallCount} walls · ${showDistanceHeatmap ? 'Distance heatmap enabled' : 'Solution route enabled'}`
+					: 'Loading canvas…'}
 			</p>
 		</div>
 	{/if}

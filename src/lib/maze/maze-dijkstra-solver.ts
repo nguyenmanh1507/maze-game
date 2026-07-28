@@ -14,6 +14,11 @@ export interface UnreachableMazeSolution {
 
 export type MazeSolution = SolvedMazeSolution | UnreachableMazeSolution
 
+export interface MazeDistanceField {
+	distances: ReadonlyMap<string, number>
+	maximumDistance: number
+}
+
 interface QueueEntry {
 	nodeId: string
 	distance: number
@@ -27,6 +32,34 @@ export function solveMazeDijkstra(model: MazeModelV1): MazeSolution {
 		return { status: 'solved', nodeIds: [startNodeId], distance: 0 }
 	}
 
+	const traversal = traverseMazeDijkstra(model, startNodeId)
+	const distance = traversal.distances.get(goalNodeId)
+
+	if (distance !== undefined) {
+		return {
+			status: 'solved',
+			nodeIds: reconstructPath(traversal.previous, goalNodeId),
+			distance
+		}
+	}
+
+	return { status: 'unreachable', nodeIds: [], distance: Number.POSITIVE_INFINITY }
+}
+
+export function calculateMazeDistanceField(model: MazeModelV1): MazeDistanceField {
+	const startNodeId = findFeatureNodeId(model, 'start')
+	const { distances } = traverseMazeDijkstra(model, startNodeId)
+
+	return {
+		distances,
+		maximumDistance: Math.max(...distances.values())
+	}
+}
+
+function traverseMazeDijkstra(
+	model: MazeModelV1,
+	startNodeId: string
+): { distances: Map<string, number>; previous: Map<string, string> } {
 	const neighbors = createNeighborIndex(model)
 	const distances = new Map<string, number>([[startNodeId, 0]])
 	const previous = new Map<string, string>()
@@ -39,14 +72,6 @@ export function solveMazeDijkstra(model: MazeModelV1): MazeSolution {
 
 		if (!current || current.distance !== distances.get(current.nodeId)) {
 			continue
-		}
-
-		if (current.nodeId === goalNodeId) {
-			return {
-				status: 'solved',
-				nodeIds: reconstructPath(previous, goalNodeId),
-				distance: current.distance
-			}
 		}
 
 		for (const neighbor of neighbors.get(current.nodeId) ?? []) {
@@ -63,7 +88,7 @@ export function solveMazeDijkstra(model: MazeModelV1): MazeSolution {
 		}
 	}
 
-	return { status: 'unreachable', nodeIds: [], distance: Number.POSITIVE_INFINITY }
+	return { distances, previous }
 }
 
 function findFeatureNodeId(model: MazeModelV1, featureType: 'start' | 'goal'): string {

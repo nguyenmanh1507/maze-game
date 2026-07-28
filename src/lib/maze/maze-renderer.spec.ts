@@ -1,4 +1,4 @@
-import { Path } from 'fabric'
+import { Path, Rect } from 'fabric'
 import { describe, expect, it } from 'vitest'
 import { createBlankGridMaze } from './maze-model'
 import { renderRectangularMaze, type MazeFabricCanvas } from './maze-renderer'
@@ -57,6 +57,40 @@ describe('renderRectangularMaze', () => {
 			['M', expect.any(Number), expect.any(Number)],
 			['L', expect.any(Number), expect.any(Number)]
 		])
+	})
+
+	it('renders a light-to-dark distance heatmap behind walls and features', () => {
+		const { model, layout } = createBlankGridMaze({ rows: 1, columns: 2 })
+
+		const result = renderRectangularMaze(createCanvasDouble(), model, {
+			distanceField: {
+				distances: new Map([
+					[layout.cells[0][0], 0],
+					[layout.cells[0][1], 2]
+				]),
+				maximumDistance: 2
+			}
+		})
+
+		const heatmapCells = result.objects.slice(1, 3)
+
+		expect(heatmapCells).toHaveLength(2)
+		expect(heatmapCells.every((object) => object instanceof Rect)).toBe(true)
+		expect(heatmapCells.map((object) => object.fill)).toEqual(['#eef2ff', '#312e81'])
+	})
+
+	it('uses the brightest heatmap color for a zero-maximum distance field', () => {
+		const { model, layout } = createBlankGridMaze({ rows: 1, columns: 1 })
+
+		const result = renderRectangularMaze(createCanvasDouble(), model, {
+			distanceField: {
+				distances: new Map([[layout.cells[0][0], 0]]),
+				maximumDistance: 0
+			}
+		})
+
+		expect(result.objects[1]).toBeInstanceOf(Rect)
+		expect(result.objects[1].fill).toBe('#eef2ff')
 	})
 
 	it('rejects solution paths that reference missing nodes', () => {

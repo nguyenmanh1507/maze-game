@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { addPassage } from './helpers'
 import { createBlankGridMaze } from './maze-model'
-import { solveMazeDijkstra } from './maze-dijkstra-solver'
+import { calculateMazeDistanceField, solveMazeDijkstra } from './maze-dijkstra-solver'
 
 describe('solveMazeDijkstra', () => {
 	it('returns the lowest-distance route through walkable passages', () => {
@@ -70,6 +70,44 @@ describe('solveMazeDijkstra', () => {
 			status: 'unreachable',
 			nodeIds: [],
 			distance: Number.POSITIVE_INFINITY
+		})
+	})
+
+	it('calculates distances for every reachable node and the maximum distance', () => {
+		const draft = createBlankGridMaze({ rows: 2, columns: 2 })
+		const maze = draft.model
+		const topLeft = draft.layout.cells[0][0]
+		const topRight = draft.layout.cells[0][1]
+		const bottomLeft = draft.layout.cells[1][0]
+		const bottomRight = draft.layout.cells[1][1]
+
+		addPassage(maze, bottomLeft, topLeft)
+		addPassage(maze, topLeft, topRight)
+		addPassage(maze, bottomLeft, bottomRight)
+
+		const distanceField = calculateMazeDistanceField(maze)
+		const stepDistance = Math.hypot(
+			maze.nodes[topLeft].position.x - maze.nodes[bottomLeft].position.x,
+			maze.nodes[topLeft].position.y - maze.nodes[bottomLeft].position.y
+		)
+
+		expect(distanceField.distances).toEqual(
+			new Map([
+				[bottomLeft, 0],
+				[topLeft, stepDistance],
+				[bottomRight, stepDistance],
+				[topRight, stepDistance * 2]
+			])
+		)
+		expect(distanceField.maximumDistance).toBeCloseTo(stepDistance * 2)
+	})
+
+	it('omits unreachable nodes from the distance field', () => {
+		const { model, layout } = createBlankGridMaze({ rows: 1, columns: 2 })
+
+		expect(calculateMazeDistanceField(model)).toEqual({
+			distances: new Map([[layout.cells[0][0], 0]]),
+			maximumDistance: 0
 		})
 	})
 
