@@ -1,6 +1,7 @@
 <script lang="ts">
 	import MainNav from '$lib/main-nav.svelte'
 	import BinaryMazeDemo from '$lib/maze/binary-maze-demo.svelte'
+	import HuntAndKillMaze from '$lib/maze/hunt-and-kill-maze.svelte'
 	import SidewinderMaze from '$lib/maze/sidewinder-maze.svelte'
 	import WilsonMaze from '$lib/maze/wilson-maze.svelte'
 </script>
@@ -16,5 +17,6 @@
 		<BinaryMazeDemo />
 		<SidewinderMaze />
 		<WilsonMaze />
+		<HuntAndKillMaze />
 	</section>
 </main>

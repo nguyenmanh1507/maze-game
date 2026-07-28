@@ -4,11 +4,7 @@ import {
 	cloneMazeModel,
 	createSeededRandom,
 	getAllGridCells,
-	getEastCell,
-	getNorthCell,
-	getSouthCell,
-	getWestCell,
-	type GridCell
+	getOrthogonalNeighbors
 } from './helpers'
 import type { GenerateMazeOptions } from './maze-generator'
 import { DEFAULT_PASSAGE_WIDTH, type MazeDraft, type MazeModelV1 } from './maze-model'
@@ -52,7 +48,7 @@ export function generateWilsonMaze(
 		const pathIndexes = new Map([[current.id, 0]])
 
 		while (unvisited.has(current.id)) {
-			const next = chooseRandom(getOrthogonalNeighbors(draft, current), random)
+			const next = chooseRandom(getOrthogonalNeighbors(draft.layout, current), random)
 
 			if (!next) {
 				throw new Error(`Wilson maze cell ${current.id} has no neighbors.`)
@@ -81,13 +77,4 @@ export function generateWilsonMaze(
 	}
 
 	return result
-}
-
-function getOrthogonalNeighbors(draft: MazeDraft, cell: GridCell): GridCell[] {
-	return [
-		getNorthCell(draft.layout, cell),
-		getSouthCell(draft.layout, cell),
-		getEastCell(draft.layout, cell),
-		getWestCell(draft.layout, cell)
-	].filter((neighbor): neighbor is GridCell => neighbor !== undefined)
 }

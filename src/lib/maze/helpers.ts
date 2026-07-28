@@ -40,6 +40,15 @@ export function getWestCell(layout: GridLayout, cell: GridCell): GridCell | unde
 	return getGridCell(layout, cell.row, cell.column - 1)
 }
 
+export function getOrthogonalNeighbors(layout: GridLayout, cell: GridCell): GridCell[] {
+	return [
+		getNorthCell(layout, cell),
+		getSouthCell(layout, cell),
+		getEastCell(layout, cell),
+		getWestCell(layout, cell)
+	].filter((neighbor): neighbor is GridCell => neighbor !== undefined)
+}
+
 export function getAllGridCells(layout: GridLayout): GridCell[] {
 	const result: GridCell[] = []
 
