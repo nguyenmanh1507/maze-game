@@ -8,7 +8,7 @@ import {
 	getNorthCell,
 	type GridCell
 } from './helpers'
-import type { GenerateMazeOptions } from './maze-binary-tree-generator'
+import type { GenerateMazeOptions } from './maze-generator'
 import { DEFAULT_PASSAGE_WIDTH, type MazeDraft, type MazeModelV1 } from './maze-model'
 
 export interface SidewinderOptions extends GenerateMazeOptions {

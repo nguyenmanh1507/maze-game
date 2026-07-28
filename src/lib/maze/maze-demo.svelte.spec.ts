@@ -1,6 +1,7 @@
 import { flushSync, mount, tick, unmount } from 'svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { generateBinaryTreeMaze } from './maze-binary-tree-generator'
+import type { GenerateMazeOptions } from './maze-generator'
 import type { MazeDraft, MazeModelV1 } from './maze-model'
 import MazeDemo from './maze-demo.svelte'
 
@@ -19,7 +20,7 @@ const renderer = vi.hoisted(() => ({ renderRectangularMaze: vi.fn() }))
 vi.mock('fabric', () => ({ Canvas: fabric.Canvas }))
 vi.mock('./maze-renderer', () => renderer)
 
-function generateMaze(draft: MazeDraft, options: { seed: number }): MazeModelV1 {
+function generateMaze(draft: MazeDraft, options: GenerateMazeOptions = {}): MazeModelV1 {
 	return generateBinaryTreeMaze(draft, options)
 }
 

@@ -8,10 +8,9 @@
 		type MazeDistanceField,
 		type MazeSolution
 	} from './maze-dijkstra-solver'
-	import { createBlankGridMaze, type MazeDraft, type MazeModelV1 } from './maze-model'
+	import type { MazeGenerator } from './maze-generator'
+	import { createBlankGridMaze, type MazeModelV1 } from './maze-model'
 	import { renderRectangularMaze } from './maze-renderer'
-
-	type MazeGenerator = (draft: MazeDraft, options: { seed: number }) => MazeModelV1
 
 	let { title, generateMaze }: { title: string; generateMaze: MazeGenerator } = $props()
 
