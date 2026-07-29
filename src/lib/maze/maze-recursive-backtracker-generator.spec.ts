@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createTestDraft, expectSpanningTree } from './maze-generator.spec-helpers'
 import { generateRecursiveBacktrackerMaze } from './maze-recursive-backtracker-generator'
+import { createMaskedGridMaze } from './maze-model'
 
 describe('generateRecursiveBacktrackerMaze', () => {
 	it('generates a connected tree using only orthogonal grid passages', () => {
@@ -25,5 +26,30 @@ describe('generateRecursiveBacktrackerMaze', () => {
 		const maze = generateRecursiveBacktrackerMaze(createTestDraft(1, 1), { seed: 1 })
 
 		expect(maze.edges).toEqual({})
+	})
+
+	it('generates a connected tree without passages through disabled cells', () => {
+		const draft = createMaskedGridMaze({
+			mask: {
+				rows: 3,
+				columns: 4,
+				enabled: [
+					[true, true, false, false],
+					[false, true, true, false],
+					[false, true, true, true]
+				]
+			},
+			startCell: { row: 0, column: 0 },
+			goalCell: { row: 2, column: 3 }
+		})
+
+		const first = generateRecursiveBacktrackerMaze(draft, { seed: 42 })
+		const second = generateRecursiveBacktrackerMaze(draft, { seed: 42 })
+
+		expectSpanningTree(first, draft)
+		expect(first).toEqual(second)
+		expect(Object.values(first.edges).flatMap((edge) => [edge.from, edge.to])).not.toContain(
+			'cell:r0:c2'
+		)
 	})
 })

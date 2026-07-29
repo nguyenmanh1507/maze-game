@@ -1,7 +1,8 @@
 import { Path, Rect } from 'fabric'
 import { describe, expect, it } from 'vitest'
-import { createBlankGridMaze } from './maze-model'
-import { renderRectangularMaze, type MazeFabricCanvas } from './maze-renderer'
+import { addPassage } from './helpers'
+import { createBlankGridMaze, createMaskedGridMaze } from './maze-model'
+import { renderMaskedGridMaze, renderRectangularMaze, type MazeFabricCanvas } from './maze-renderer'
 
 function createCanvasDouble(): MazeFabricCanvas {
 	const objects: unknown[] = []
@@ -46,7 +47,7 @@ describe('renderRectangularMaze', () => {
 		const { model, layout } = createBlankGridMaze({ rows: 1, columns: 2 })
 
 		const result = renderRectangularMaze(createCanvasDouble(), model, {
-			solutionNodeIds: layout.cells[0]
+			solutionNodeIds: layout.cells[0].filter((nodeId): nodeId is string => nodeId !== undefined)
 		})
 
 		const solutionPath = result.objects.find(
@@ -65,8 +66,8 @@ describe('renderRectangularMaze', () => {
 		const result = renderRectangularMaze(createCanvasDouble(), model, {
 			distanceField: {
 				distances: new Map([
-					[layout.cells[0][0], 0],
-					[layout.cells[0][1], 2]
+					[layout.cells[0][0] as string, 0],
+					[layout.cells[0][1] as string, 2]
 				]),
 				maximumDistance: 2
 			}
@@ -84,7 +85,7 @@ describe('renderRectangularMaze', () => {
 
 		const result = renderRectangularMaze(createCanvasDouble(), model, {
 			distanceField: {
-				distances: new Map([[layout.cells[0][0], 0]]),
+				distances: new Map([[layout.cells[0][0] as string, 0]]),
 				maximumDistance: 0
 			}
 		})
@@ -99,5 +100,68 @@ describe('renderRectangularMaze', () => {
 		expect(() =>
 			renderRectangularMaze(createCanvasDouble(), model, { solutionNodeIds: ['missing-node'] })
 		).toThrow('Solution references missing node "missing-node".')
+	})
+})
+
+describe('renderMaskedGridMaze', () => {
+	it('renders each exposed outer and hole boundary for a sparse mask', () => {
+		const { model } = createMaskedGridMaze({
+			mask: {
+				rows: 3,
+				columns: 3,
+				enabled: [
+					[true, true, true],
+					[true, false, true],
+					[true, true, true]
+				]
+			},
+			startCell: { row: 0, column: 0 },
+			goalCell: { row: 2, column: 2 }
+		})
+
+		const result = renderMaskedGridMaze(createCanvasDouble(), model)
+		const paths = result.objects.filter((object): object is Path => object instanceof Path)
+
+		expect(result.rows).toBe(3)
+		expect(result.columns).toBe(3)
+		expect(paths).toHaveLength(24)
+	})
+
+	it('renders heatmap and solution overlays for enabled cells only', () => {
+		const { model, layout } = createMaskedGridMaze({
+			mask: {
+				rows: 2,
+				columns: 2,
+				enabled: [
+					[true, false],
+					[true, true]
+				]
+			},
+			startCell: { row: 0, column: 0 },
+			goalCell: { row: 1, column: 1 }
+		})
+		const start = layout.cells[0][0] as string
+		const middle = layout.cells[1][0] as string
+		const goal = layout.cells[1][1] as string
+
+		addPassage(model, start, middle)
+		addPassage(model, middle, goal)
+
+		const result = renderMaskedGridMaze(createCanvasDouble(), model, {
+			distanceField: {
+				distances: new Map([
+					[start, 0],
+					[middle, 1],
+					[goal, 2]
+				]),
+				maximumDistance: 2
+			},
+			solutionNodeIds: [start, middle, goal]
+		})
+
+		expect(result.objects.filter((object) => object instanceof Rect)).toHaveLength(6)
+		expect(
+			result.objects.some((object) => object instanceof Path && object.stroke === '#22c55e')
+		).toBe(true)
 	})
 })

@@ -17,8 +17,14 @@ export function getGridCell(layout: GridLayout, row: number, column: number): Gr
 		return undefined
 	}
 
+	const id = layout.cells[row][column]
+
+	if (!id) {
+		return undefined
+	}
+
 	return {
-		id: layout.cells[row][column],
+		id,
 		row,
 		column
 	}
@@ -54,8 +60,12 @@ export function getAllGridCells(layout: GridLayout): GridCell[] {
 
 	for (let row = 0; row < layout.rows; row += 1) {
 		for (let column = 0; column < layout.columns; column += 1) {
+			const id = layout.cells[row][column]
+
+			if (!id) continue
+
 			result.push({
-				id: layout.cells[row][column],
+				id,
 				row,
 				column
 			})

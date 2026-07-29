@@ -157,7 +157,7 @@ interface InferredRectangularGrid {
 	 */
 	yBoundaries: number[]
 
-	cells: MazeGridCell[][]
+	cells: Array<Array<MazeGridCell | undefined>>
 
 	nodeIndex: Map<string, MazeGridCell>
 }
@@ -269,6 +269,99 @@ export function renderRectangularMaze(
 		remove(): void {
 			const previous = canvas.renderOnAddRemove
 
+			canvas.renderOnAddRemove = false
+
+			try {
+				for (const object of objects) {
+					canvas.remove(object)
+				}
+			} finally {
+				canvas.renderOnAddRemove = previous
+			}
+
+			canvas.requestRenderAll()
+		}
+	}
+}
+
+/**
+ * Renders a maze whose missing grid cells define its outer silhouette and holes.
+ * Unlike renderRectangularMaze, this function accepts a sparse rectangular grid.
+ */
+export function renderMaskedGridMaze(
+	canvas: MazeFabricCanvas,
+	model: MazeModelV1,
+	options: MazeRendererOptions = {}
+): MazeRenderResult {
+	validateBasicModel(model)
+
+	const padding = options.padding ?? 32
+	const clearCanvas = options.clearCanvas ?? true
+	const wallWidth = options.wallWidth ?? 4
+	const outerWallWidth = options.outerWallWidth ?? wallWidth
+	const grid = inferMaskedGrid(model, options)
+	const transform = createCoordinateTransform(canvas, grid, padding)
+	const passageSet = createPassageSet(model, grid, options.strictGridEdges ?? true)
+	const objects: MazeFabricObject[] = []
+
+	objects.push(
+		...createMaskedBoardBackgroundObjects(grid, transform, options.boardFill ?? '#f4f0e8')
+	)
+
+	if (options.distanceField) {
+		objects.push(...createDistanceHeatmapObjects(grid, transform, options.distanceField))
+	}
+
+	if (options.showPassages) {
+		objects.push(...createPassageDebugObjects(model, grid, transform, options))
+	}
+
+	objects.push(
+		...createMaskedWallObjects(grid, passageSet, transform, {
+			wallColor: options.wallColor ?? '#172033',
+			wallWidth,
+			outerWallWidth,
+			wallLineCap: options.wallLineCap ?? 'square'
+		})
+	)
+
+	const solutionObject = createSolutionObject(model, transform, options)
+	if (solutionObject) {
+		objects.push(solutionObject)
+	}
+
+	objects.push(...createFeatureObjects(model, transform, options))
+
+	if (options.showNodes) {
+		objects.push(...createNodeDebugObjects(grid, transform, options))
+	}
+
+	if (clearCanvas) {
+		canvas.clear()
+	}
+
+	const previousRenderOnAddRemove = canvas.renderOnAddRemove
+	canvas.renderOnAddRemove = false
+
+	try {
+		for (const object of objects) {
+			canvas.add(object)
+		}
+	} finally {
+		canvas.renderOnAddRemove = previousRenderOnAddRemove
+	}
+
+	canvas.requestRenderAll()
+
+	return {
+		objects,
+		rows: grid.rows,
+		columns: grid.columns,
+		worldBounds: transform.worldBounds,
+		canvasBounds: transform.canvasBounds,
+		worldToCanvas: transform.worldToCanvas,
+		remove(): void {
+			const previous = canvas.renderOnAddRemove
 			canvas.renderOnAddRemove = false
 
 			try {
@@ -415,6 +508,64 @@ function inferRectangularGrid(
 		xBoundaries,
 		yBoundaries,
 		cells: cells as MazeGridCell[][],
+		nodeIndex
+	}
+}
+
+function inferMaskedGrid(
+	model: MazeModelV1,
+	options: MazeRendererOptions
+): InferredRectangularGrid {
+	const tolerance = options.coordinateTolerance ?? 1e-6
+	const nodes = Object.values(model.nodes)
+	const xCenters = clusterCoordinates(
+		nodes.map((node) => node.position.x),
+		tolerance
+	).sort((a, b) => a - b)
+	const yCenters = clusterCoordinates(
+		nodes.map((node) => node.position.y),
+		tolerance
+	).sort((a, b) => b - a)
+	const rows = yCenters.length
+	const columns = xCenters.length
+	const cells: Array<Array<MazeGridCell | undefined>> = Array.from({ length: rows }, () =>
+		Array.from({ length: columns }, () => undefined)
+	)
+	const nodeIndex = new Map<string, MazeGridCell>()
+
+	for (const node of nodes) {
+		const column = findCoordinateIndex(node.position.x, xCenters, tolerance)
+		const row = findCoordinateIndex(node.position.y, yCenters, tolerance)
+
+		if (row < 0 || column < 0) {
+			throw new Error(`Cannot map node "${node.id}" to masked grid.`)
+		}
+
+		if (cells[row][column]) {
+			throw new Error(`Multiple nodes occupy grid cell row=${row}, column=${column}.`)
+		}
+
+		const gridCell: MazeGridCell = {
+			nodeId: node.id,
+			row,
+			column,
+			position: node.position
+		}
+
+		cells[row][column] = gridCell
+		nodeIndex.set(node.id, gridCell)
+	}
+
+	const fallbackCellSize = options.singleCellSizeWorld ?? Math.max(model.board.radius * 0.5, 0.001)
+
+	return {
+		rows,
+		columns,
+		xCenters,
+		yCenters,
+		xBoundaries: buildAscendingBoundaries(xCenters, fallbackCellSize),
+		yBoundaries: buildDescendingBoundaries(yCenters, fallbackCellSize),
+		cells,
 		nodeIndex
 	}
 }
@@ -667,6 +818,46 @@ function createBoardBackground(bounds: MazeCanvasBounds, fill: string): Rect {
 	})
 }
 
+function createMaskedBoardBackgroundObjects(
+	grid: InferredRectangularGrid,
+	transform: CoordinateTransform,
+	fill: string
+): Rect[] {
+	const backgrounds: Rect[] = []
+
+	for (const row of grid.cells) {
+		for (const cell of row) {
+			if (!cell) continue
+
+			const topLeft = transform.worldToCanvas({
+				x: grid.xBoundaries[cell.column],
+				y: grid.yBoundaries[cell.row]
+			})
+			const bottomRight = transform.worldToCanvas({
+				x: grid.xBoundaries[cell.column + 1],
+				y: grid.yBoundaries[cell.row + 1]
+			})
+
+			backgrounds.push(
+				new Rect({
+					left: topLeft.x,
+					top: topLeft.y,
+					width: bottomRight.x - topLeft.x,
+					height: bottomRight.y - topLeft.y,
+					originX: 'left',
+					originY: 'top',
+					fill,
+					strokeWidth: 0,
+					selectable: false,
+					evented: false
+				})
+			)
+		}
+	}
+
+	return backgrounds
+}
+
 function createDistanceHeatmapObjects(
 	grid: InferredRectangularGrid,
 	transform: CoordinateTransform,
@@ -676,6 +867,8 @@ function createDistanceHeatmapObjects(
 
 	for (const row of grid.cells) {
 		for (const cell of row) {
+			if (!cell) continue
+
 			const distance = distanceField.distances.get(cell.nodeId)
 
 			if (distance === undefined) {
@@ -805,6 +998,10 @@ function createWallObjects(
 
 			const rightCell = grid.cells[row][column]
 
+			if (!leftCell || !rightCell) {
+				throw new Error('Rectangular maze is missing an expected grid cell.')
+			}
+
 			if (hasPassage(passages, leftCell.nodeId, rightCell.nodeId)) {
 				continue
 			}
@@ -844,6 +1041,10 @@ function createWallObjects(
 
 			const bottomCell = grid.cells[row][column]
 
+			if (!topCell || !bottomCell) {
+				throw new Error('Rectangular maze is missing an expected grid cell.')
+			}
+
 			if (hasPassage(passages, topCell.nodeId, bottomCell.nodeId)) {
 				continue
 			}
@@ -871,6 +1072,102 @@ function createWallObjects(
 	}
 
 	return walls
+}
+
+function createMaskedWallObjects(
+	grid: InferredRectangularGrid,
+	passages: Set<string>,
+	transform: CoordinateTransform,
+	options: WallRenderOptions
+): Path[] {
+	const walls: Path[] = []
+
+	for (let row = 0; row < grid.rows; row += 1) {
+		for (let column = 0; column < grid.columns; column += 1) {
+			const cell = grid.cells[row][column]
+			if (!cell) continue
+
+			const north = grid.cells[row - 1]?.[column]
+			const west = grid.cells[row]?.[column - 1]
+			const south = grid.cells[row + 1]?.[column]
+			const east = grid.cells[row]?.[column + 1]
+
+			if (!north || !hasPassage(passages, cell.nodeId, north.nodeId)) {
+				walls.push(
+					createWallPath(
+						transform,
+						{ x: grid.xBoundaries[column], y: grid.yBoundaries[row] },
+						{ x: grid.xBoundaries[column + 1], y: grid.yBoundaries[row] },
+						row === 0 ? options.outerWallWidth : options.wallWidth,
+						options
+					)
+				)
+			}
+
+			if (!west || !hasPassage(passages, cell.nodeId, west.nodeId)) {
+				walls.push(
+					createWallPath(
+						transform,
+						{ x: grid.xBoundaries[column], y: grid.yBoundaries[row] },
+						{ x: grid.xBoundaries[column], y: grid.yBoundaries[row + 1] },
+						column === 0 ? options.outerWallWidth : options.wallWidth,
+						options
+					)
+				)
+			}
+
+			if (!south) {
+				walls.push(
+					createWallPath(
+						transform,
+						{ x: grid.xBoundaries[column], y: grid.yBoundaries[row + 1] },
+						{ x: grid.xBoundaries[column + 1], y: grid.yBoundaries[row + 1] },
+						row === grid.rows - 1 ? options.outerWallWidth : options.wallWidth,
+						options
+					)
+				)
+			}
+
+			if (!east) {
+				walls.push(
+					createWallPath(
+						transform,
+						{ x: grid.xBoundaries[column + 1], y: grid.yBoundaries[row] },
+						{ x: grid.xBoundaries[column + 1], y: grid.yBoundaries[row + 1] },
+						column === grid.columns - 1 ? options.outerWallWidth : options.wallWidth,
+						options
+					)
+				)
+			}
+		}
+	}
+
+	return walls
+}
+
+function createWallPath(
+	transform: CoordinateTransform,
+	from: Vec2,
+	to: Vec2,
+	width: number,
+	options: WallRenderOptions
+): Path {
+	const start = transform.worldToCanvas(from)
+	const end = transform.worldToCanvas(to)
+
+	return new Path(
+		[
+			['M', start.x, start.y],
+			['L', end.x, end.y]
+		],
+		{
+			stroke: options.wallColor,
+			strokeWidth: width,
+			strokeLineCap: options.wallLineCap,
+			selectable: false,
+			evented: false
+		}
+	)
 }
 
 /* -------------------------------------------------------------------------- */

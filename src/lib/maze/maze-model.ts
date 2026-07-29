@@ -1,4 +1,5 @@
 import { cloneVec2 } from './helpers'
+import { assertConnectedMask, type MazeCellCoordinate, type MazeMask } from './maze-mask'
 
 export interface Vec2 {
 	x: number
@@ -62,7 +63,7 @@ export interface GridLayout {
 	/**
 	 * cells[row][column] -> nodeId
 	 */
-	cells: string[][]
+	cells: Array<Array<string | undefined>>
 }
 
 export interface MazeDraft {
@@ -86,6 +87,19 @@ export interface CreateBlankMazeOptions {
 	boardPaddingRatio?: number
 }
 
+export interface CreateMaskedMazeOptions {
+	mask: MazeMask
+	startCell: MazeCellCoordinate
+	goalCell: MazeCellCoordinate
+
+	boardRadius?: number
+	wallHeight?: number
+
+	passageWidth?: number
+
+	boardPaddingRatio?: number
+}
+
 export const DEFAULT_BOARD_RADIUS = 0.1
 export const DEFAULT_WALL_HEIGHT = 0.012
 export const DEFAULT_PASSAGE_WIDTH = 0.018
@@ -101,16 +115,33 @@ export const DEFAULT_PADDING_RATIO = 0.85
  * Grid hình chữ nhật được đặt trong một hình vuông nội tiếp board tròn.
  */
 export function createBlankGridMaze(options: CreateBlankMazeOptions): MazeDraft {
+	const { rows, columns, ...sharedOptions } = options
+
+	return createMaskedGridMaze({
+		...sharedOptions,
+		mask: {
+			rows,
+			columns,
+			enabled: Array.from({ length: rows }, () => Array.from({ length: columns }, () => true))
+		},
+		startCell: { row: rows - 1, column: 0 },
+		goalCell: { row: 0, column: columns - 1 }
+	})
+}
+
+export function createMaskedGridMaze(options: CreateMaskedMazeOptions): MazeDraft {
 	const {
-		rows,
-		columns,
+		mask,
+		startCell,
+		goalCell,
 		boardRadius = DEFAULT_BOARD_RADIUS,
 		wallHeight = DEFAULT_WALL_HEIGHT,
 		boardPaddingRatio = DEFAULT_PADDING_RATIO
 	} = options
 
-	assertPositiveInteger(rows, 'rows')
-	assertPositiveInteger(columns, 'columns')
+	assertMazeMask(mask)
+	assertConnectedMask(mask, startCell)
+	assertEnabledCell(mask, goalCell, 'goal')
 
 	if (boardRadius <= 0) {
 		throw new Error('boardRadius must be greater than 0')
@@ -123,22 +154,27 @@ export function createBlankGridMaze(options: CreateBlankMazeOptions): MazeDraft 
 	const halfExtent = (boardRadius / Math.SQRT2) * boardPaddingRatio
 
 	const nodes: MazeModelV1['nodes'] = {}
-	const cells: string[][] = []
+	const cells: Array<Array<string | undefined>> = []
 
-	for (let row = 0; row < rows; row += 1) {
-		const currentRow: string[] = []
+	for (let row = 0; row < mask.rows; row += 1) {
+		const currentRow: Array<string | undefined> = []
 
-		for (let column = 0; column < columns; column += 1) {
+		for (let column = 0; column < mask.columns; column += 1) {
+			if (!mask.enabled[row][column]) {
+				currentRow.push(undefined)
+				continue
+			}
+
 			const id = createCellId(row, column)
 
 			const position: Vec2 = {
-				x: interpolateGridCoordinate(column, columns, -halfExtent, halfExtent),
+				x: interpolateGridCoordinate(column, mask.columns, -halfExtent, halfExtent),
 
 				/*
 				 * row 0 là hàng phía Bắc.
 				 * Vì vậy Y giảm dần khi row tăng.
 				 */
-				y: interpolateGridCoordinate(row, rows, halfExtent, -halfExtent)
+				y: interpolateGridCoordinate(row, mask.rows, halfExtent, -halfExtent)
 			}
 
 			nodes[id] = {
@@ -152,10 +188,8 @@ export function createBlankGridMaze(options: CreateBlankMazeOptions): MazeDraft 
 		cells.push(currentRow)
 	}
 
-	const startNodeId = cells[rows - 1][0]
-	const goalNodeId = cells[0][columns - 1]
-	// const startNodeId = cells[0][0]
-	// const goalNodeId = cells[rows - 1][columns - 1]
+	const startNodeId = cells[startCell.row][startCell.column]
+	const goalNodeId = cells[goalCell.row][goalCell.column]
 
 	const model: MazeModelV1 = {
 		schemaVersion: 1,
@@ -176,14 +210,14 @@ export function createBlankGridMaze(options: CreateBlankMazeOptions): MazeDraft 
 			start: {
 				id: 'start',
 				type: 'start',
-				position: cloneVec2(nodes[startNodeId].position),
+				position: cloneVec2(nodes[startNodeId as string].position),
 				radius: boardRadius * 0.045
 			},
 
 			goal: {
 				id: 'goal',
 				type: 'goal',
-				position: cloneVec2(nodes[goalNodeId].position),
+				position: cloneVec2(nodes[goalNodeId as string].position),
 				radius: boardRadius * 0.055
 			}
 		}
@@ -192,8 +226,8 @@ export function createBlankGridMaze(options: CreateBlankMazeOptions): MazeDraft 
 	return {
 		model,
 		layout: {
-			rows,
-			columns,
+			rows: mask.rows,
+			columns: mask.columns,
 			cells
 		}
 	}
@@ -214,5 +248,26 @@ function createCellId(row: number, column: number): string {
 function assertPositiveInteger(value: number, name: string): void {
 	if (!Number.isInteger(value) || value <= 0) {
 		throw new Error(`${name} must be a positive integer`)
+	}
+}
+
+function assertMazeMask(mask: MazeMask): void {
+	assertPositiveInteger(mask.rows, 'mask.rows')
+	assertPositiveInteger(mask.columns, 'mask.columns')
+
+	if (mask.enabled.length !== mask.rows) {
+		throw new Error('mask.enabled must contain one row for every mask row.')
+	}
+
+	for (const row of mask.enabled) {
+		if (row.length !== mask.columns) {
+			throw new Error('mask.enabled rows must contain one value for every mask column.')
+		}
+	}
+}
+
+function assertEnabledCell(mask: MazeMask, cell: MazeCellCoordinate, name: string): void {
+	if (!mask.enabled[cell.row]?.[cell.column]) {
+		throw new Error(`Maze ${name} cell must be enabled.`)
 	}
 }

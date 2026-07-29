@@ -11,7 +11,11 @@ export function expectSpanningTree(maze: MazeModelV1, draft: MazeDraft): void {
 
 	for (let row = 0; row < draft.layout.rows; row += 1) {
 		for (let column = 0; column < draft.layout.columns; column += 1) {
-			positions.set(draft.layout.cells[row][column], { row, column })
+			const nodeId = draft.layout.cells[row][column]
+
+			if (nodeId) {
+				positions.set(nodeId, { row, column })
+			}
 		}
 	}
 
