@@ -2,6 +2,7 @@
 	import MainNav from '$lib/main-nav.svelte'
 	import BinaryMazeDemo from '$lib/maze/binary-maze-demo.svelte'
 	import HuntAndKillMaze from '$lib/maze/hunt-and-kill-maze.svelte'
+	import RecursiveBacktrackerMaze from '$lib/maze/recursive-backtracker-maze.svelte'
 	import SidewinderMaze from '$lib/maze/sidewinder-maze.svelte'
 	import WilsonMaze from '$lib/maze/wilson-maze.svelte'
 </script>
@@ -18,5 +19,6 @@
 		<SidewinderMaze />
 		<WilsonMaze />
 		<HuntAndKillMaze />
+		<RecursiveBacktrackerMaze />
 	</section>
 </main>
