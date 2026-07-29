@@ -17,6 +17,7 @@
 	let canvasElement = $state<HTMLCanvasElement>()
 	let fabricCanvas: Canvas | undefined
 	let wallCount = $state(0)
+	let deadEnd = $state(0)
 	let errorMessage = $state('')
 	let isReady = $state(false)
 	let generatedMaze = $state<MazeModelV1>()
@@ -28,6 +29,7 @@
 		if (!fabricCanvas || !generatedMaze || !solution || !distanceField) return
 
 		wallCount = Object.keys(generatedMaze.edges).length
+		deadEnd = countDeadEnds(generatedMaze)
 
 		renderRectangularMaze(fabricCanvas, generatedMaze, {
 			showNodes: true,
@@ -37,6 +39,21 @@
 			distanceField: showDistanceHeatmap ? distanceField : undefined,
 			solutionNodeIds: showDistanceHeatmap ? undefined : solution.nodeIds
 		})
+	}
+
+	function countDeadEnds(maze: MazeModelV1): number {
+		const degreeByNodeId: Record<string, number> = {}
+
+		for (const nodeId of Object.keys(maze.nodes)) {
+			degreeByNodeId[nodeId] = 0
+		}
+
+		for (const edge of Object.values(maze.edges)) {
+			degreeByNodeId[edge.from] += 1
+			degreeByNodeId[edge.to] += 1
+		}
+
+		return Object.values(degreeByNodeId).filter((degree) => degree === 1).length
 	}
 
 	function toggleDistanceHeatmap() {
@@ -105,7 +122,7 @@
 			</button>
 			<p role="status" aria-live="polite">
 				{isReady
-					? `${wallCount} walls · ${showDistanceHeatmap ? 'Distance heatmap enabled' : 'Solution route enabled'}`
+					? `${wallCount} walls · ${deadEnd} dead ends · ${showDistanceHeatmap ? 'Distance heatmap enabled' : 'Solution route enabled'}`
 					: 'Loading canvas…'}
 			</p>
 		</div>

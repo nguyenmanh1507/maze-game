@@ -26,8 +26,8 @@ describe('HuntAndKillMaze', () => {
 		await tick()
 
 		expect(document.querySelector('h3')?.textContent).toBe('Hunt-and-Kill Maze')
-		expect(document.querySelector('[role="status"]')?.textContent).toContain(
-			'99 walls · Solution route enabled'
+		expect(document.querySelector('[role="status"]')?.textContent).toMatch(
+			/99 walls · \d+ dead ends · Solution route enabled/
 		)
 
 		await unmount(instance)
