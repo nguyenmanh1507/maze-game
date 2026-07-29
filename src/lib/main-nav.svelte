@@ -8,16 +8,17 @@
 	</div>
 	<div class="flex-none">
 		<ul class="menu menu-horizontal px-1">
-			<li><a>Link</a></li>
-			<li>
+			<li><a href={resolve('/')}>Home</a></li>
+			<li><a href={resolve('/custom-shape')}>Maze Custom Shape</a></li>
+			<!-- <li>
 				<details>
 					<summary>Parent</summary>
 					<ul class="rounded-t-none bg-base-100 p-2">
-						<li><a>Link 1</a></li>
+						<li><a href={resolve('/')}>Home</a></li>
 						<li><a>Link 2</a></li>
 					</ul>
 				</details>
-			</li>
+			</li> -->
 		</ul>
 	</div>
 </div>

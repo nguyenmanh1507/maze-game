@@ -1,5 +1,4 @@
 <script lang="ts">
-	import MainNav from '$lib/main-nav.svelte'
 	import BinaryMazeDemo from '$lib/maze/binary-maze-demo.svelte'
 	import HuntAndKillMaze from '$lib/maze/hunt-and-kill-maze.svelte'
 	import RecursiveBacktrackerMaze from '$lib/maze/recursive-backtracker-maze.svelte'
@@ -10,8 +9,6 @@
 <svelte:head>
 	<title>Maze</title>
 </svelte:head>
-
-<MainNav />
 
 <main class="container mx-auto p-5">
 	<section class="mt-8 flex flex-col items-center justify-center gap-y-5">
