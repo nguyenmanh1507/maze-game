@@ -1,56 +1,46 @@
-import {
-	addPassage,
-	chooseRandom,
-	cloneMazeModel,
-	createSeededRandom,
-	getAllGridCells,
-	getOrthogonalNeighbors
-} from './helpers'
+import { addPassage, chooseRandom, cloneMazeModel, createSeededRandom } from './helpers'
 import type { GenerateMazeOptions } from './maze-generator'
-import { DEFAULT_PASSAGE_WIDTH, type MazeDraft, type MazeModelV1 } from './maze-model'
+import { DEFAULT_PASSAGE_WIDTH, type MazeGraphDraft, type MazeModelV1 } from './maze-model'
 
 export function generateRecursiveBacktrackerMaze(
-	draft: MazeDraft,
+	draft: MazeGraphDraft,
 	options: GenerateMazeOptions = {}
 ): MazeModelV1 {
 	const { seed = 1, passageWidth = DEFAULT_PASSAGE_WIDTH } = options
 	const random = createSeededRandom(seed)
 	const result = cloneMazeModel(draft.model)
-	const cells = getAllGridCells(draft.layout)
-	const unvisited = new Set(cells.map((cell) => cell.id))
+	const unvisited = new Set(draft.topology.nodeIds)
 
 	result.edges = {}
 
-	const start = chooseRandom(cells, random)
+	const startNodeId = chooseRandom(draft.topology.nodeIds, random)
 
-	if (!start) {
+	if (!startNodeId) {
 		return result
 	}
 
-	unvisited.delete(start.id)
+	unvisited.delete(startNodeId)
 
-	const stack = [start]
+	const stack = [startNodeId]
 
 	while (stack.length > 0) {
 		const current = stack.at(-1)
 
 		if (!current) break
 
-		const next = chooseRandom(
-			getOrthogonalNeighbors(draft.layout, current).filter((neighbor) =>
-				unvisited.has(neighbor.id)
-			),
+		const nextNodeId = chooseRandom(
+			(draft.topology.neighborsByNodeId[current] ?? []).filter((nodeId) => unvisited.has(nodeId)),
 			random
 		)
 
-		if (!next) {
+		if (!nextNodeId) {
 			stack.pop()
 			continue
 		}
 
-		addPassage(result, current.id, next.id, { width: passageWidth })
-		unvisited.delete(next.id)
-		stack.push(next)
+		addPassage(result, current, nextNodeId, { width: passageWidth })
+		unvisited.delete(nextNodeId)
+		stack.push(nextNodeId)
 	}
 
 	return result

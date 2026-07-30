@@ -12,6 +12,22 @@ export interface CatmullRomPath {
 	tension: number
 }
 
+export interface PolarSectorGeometry {
+	type: 'polar-sector'
+	ring: number
+	sector: number
+	innerRadius: number
+	outerRadius: number
+	startAngle: number
+	endAngle: number
+}
+
+export interface MazeNode {
+	id: string
+	position: Vec2
+	geometry?: PolarSectorGeometry
+}
+
 export interface MazeModelV1 {
 	schemaVersion: 1
 
@@ -20,13 +36,7 @@ export interface MazeModelV1 {
 		wallHeight: number
 	}
 
-	nodes: Record<
-		string,
-		{
-			id: string
-			position: Vec2
-		}
-	>
+	nodes: Record<string, MazeNode>
 
 	edges: Record<
 		string,
@@ -66,8 +76,17 @@ export interface GridLayout {
 	cells: Array<Array<string | undefined>>
 }
 
-export interface MazeDraft {
+export interface MazeTopology {
+	nodeIds: string[]
+	neighborsByNodeId: Record<string, string[]>
+}
+
+export interface MazeGraphDraft {
 	model: MazeModelV1
+	topology: MazeTopology
+}
+
+export interface MazeDraft extends MazeGraphDraft {
 	layout: GridLayout
 }
 
@@ -225,12 +244,37 @@ export function createMaskedGridMaze(options: CreateMaskedMazeOptions): MazeDraf
 
 	return {
 		model,
+		topology: createOrthogonalTopology(cells),
 		layout: {
 			rows: mask.rows,
 			columns: mask.columns,
 			cells
 		}
 	}
+}
+
+function createOrthogonalTopology(cells: Array<Array<string | undefined>>): MazeTopology {
+	const nodeIds = cells.flat().filter((nodeId): nodeId is string => nodeId !== undefined)
+	const neighborsByNodeId = Object.fromEntries(nodeIds.map((nodeId) => [nodeId, []])) as Record<
+		string,
+		string[]
+	>
+
+	for (let row = 0; row < cells.length; row += 1) {
+		for (let column = 0; column < cells[row].length; column += 1) {
+			const nodeId = cells[row][column]
+			if (!nodeId) continue
+
+			for (const neighborId of [cells[row - 1]?.[column], cells[row]?.[column - 1]]) {
+				if (!neighborId) continue
+
+				neighborsByNodeId[nodeId].push(neighborId)
+				neighborsByNodeId[neighborId].push(nodeId)
+			}
+		}
+	}
+
+	return { nodeIds, neighborsByNodeId }
 }
 
 function interpolateGridCoordinate(index: number, count: number, min: number, max: number): number {

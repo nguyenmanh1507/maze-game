@@ -10,6 +10,7 @@
 		<ul class="menu menu-horizontal px-1">
 			<li><a href={resolve('/')}>Home</a></li>
 			<li><a href={resolve('/custom-shape')}>Maze Custom Shape</a></li>
+			<li><a href={resolve('/circle-maze')}>Circle Maze</a></li>
 			<!-- <li>
 				<details>
 					<summary>Parent</summary>

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createTestDraft, expectSpanningTree } from './maze-generator.spec-helpers'
 import { generateRecursiveBacktrackerMaze } from './maze-recursive-backtracker-generator'
 import { createMaskedGridMaze } from './maze-model'
+import { createPolarMaze } from './polar-maze'
 
 describe('generateRecursiveBacktrackerMaze', () => {
 	it('generates a connected tree using only orthogonal grid passages', () => {
@@ -51,5 +52,19 @@ describe('generateRecursiveBacktrackerMaze', () => {
 		expect(Object.values(first.edges).flatMap((edge) => [edge.from, edge.to])).not.toContain(
 			'cell:r0:c2'
 		)
+	})
+
+	it('generates a deterministic spanning tree for a polar topology', () => {
+		const draft = createPolarMaze({ rings: 4 })
+		const first = generateRecursiveBacktrackerMaze(draft, { seed: 42 })
+		const second = generateRecursiveBacktrackerMaze(draft, { seed: 42 })
+
+		expect(first).toEqual(second)
+		expect(Object.keys(first.edges)).toHaveLength(draft.topology.nodeIds.length - 1)
+
+		for (const edge of Object.values(first.edges)) {
+			expect(draft.topology.neighborsByNodeId[edge.from]).toContain(edge.to)
+			expect(draft.topology.neighborsByNodeId[edge.to]).toContain(edge.from)
+		}
 	})
 })

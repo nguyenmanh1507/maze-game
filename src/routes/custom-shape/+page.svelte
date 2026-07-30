@@ -158,8 +158,8 @@
 		</div>
 
 		<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-			<form class="space-y-4" onsubmit={handleSubmit}>
-				<label class="form-control gap-2" for="maze-ascii">
+			<form class="flex flex-col space-y-4" onsubmit={handleSubmit}>
+				<label class="flex flex-col gap-2" for="maze-ascii">
 					<span class="label-text font-medium">ASCII shape</span>
 					<textarea
 						id="maze-ascii"
@@ -173,7 +173,7 @@
 					</span>
 				</label>
 
-				<label class="form-control max-w-xs gap-2" for="maze-seed">
+				<label class="flex max-w-xs flex-col gap-2" for="maze-seed">
 					<span class="label-text font-medium">Seed</span>
 					<input
 						id="maze-seed"
@@ -192,7 +192,7 @@
 				{/if}
 			</form>
 
-			<div class="space-y-3">
+			<div class="flex flex-col space-y-3">
 				<div class="overflow-x-auto rounded-box border border-base-300 bg-base-200 p-3">
 					<canvas
 						bind:this={canvasElement}
