@@ -84,7 +84,7 @@ export function addPassage(
 	fromNodeId: string,
 	toNodeId: string,
 	options: AddPassageOptions = {}
-): void {
+): string {
 	const fromNode = model.nodes[fromNodeId]
 	const toNode = model.nodes[toNodeId]
 
@@ -102,7 +102,7 @@ export function addPassage(
 	 * Tránh tạo duplicate edge.
 	 */
 	if (model.edges[edgeId]) {
-		return
+		return edgeId
 	}
 
 	const width = options.width ?? DEFAULT_PASSAGE_WIDTH
@@ -115,6 +115,8 @@ export function addPassage(
 
 		path: createStraightCatmullRomPath(fromNode.position, toNode.position)
 	}
+
+	return edgeId
 }
 
 function createUndirectedEdgeId(nodeA: string, nodeB: string): string {

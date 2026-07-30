@@ -13,6 +13,7 @@
 			<li><a href={resolve('/circle-maze')}>Circle Maze</a></li>
 			<li><a href={resolve('/hexa-maze')}>Hexa Maze</a></li>
 			<li><a href={resolve('/triangle-maze')}>Triangle Maze</a></li>
+			<li><a href={resolve('/braid-maze')}>Braid Maze</a></li>
 			<!-- <li>
 				<details>
 					<summary>Parent</summary>
