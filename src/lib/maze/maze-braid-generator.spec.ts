@@ -3,6 +3,7 @@ import { addPassage, cloneMazeModel } from './helpers'
 import { braidMaze } from './maze-braid-generator'
 import { generateRecursiveBacktrackerMaze } from './maze-recursive-backtracker-generator'
 import { createBlankGridMaze, type MazeModelV1, type MazeTopology } from './maze-model'
+import { createPolarMaze } from './polar-maze'
 
 describe('braidMaze', () => {
 	it('returns an unchanged clone when the requested ratio is zero', () => {
@@ -51,6 +52,40 @@ describe('braidMaze', () => {
 		}
 
 		expectMinimumCycleLengths(source, first.model, first.addedEdgeIds, 4)
+	})
+
+	it('braids a polar topology without changing the outer entrance or center goal', () => {
+		const draft = createPolarMaze({ rings: 12 })
+		const source = generateRecursiveBacktrackerMaze(draft, { seed: 42 })
+		const original = cloneMazeModel(source)
+		const startNodeId = getCellId(draft.polarLayout.rings.at(-1)?.[0])
+		const goalNodeId = getCellId(draft.polarLayout.rings[0]?.[0])
+		const options = {
+			ratio: 0.4,
+			seed: 42 ^ 0x9e3779b9,
+			minCycleLength: 8,
+			protectedNodeIds: new Set([startNodeId, goalNodeId])
+		}
+		const first = braidMaze(source, draft.topology, options)
+		const second = braidMaze(source, draft.topology, options)
+
+		expect(first).toEqual(second)
+		expect(source).toEqual(original)
+		expect(first.addedEdgeIds.length).toBeGreaterThan(0)
+		expect(Object.keys(first.model.edges)).toHaveLength(
+			Object.keys(source.edges).length + first.addedEdgeIds.length
+		)
+		expect(cycleRank(first.model) - cycleRank(source)).toBe(first.addedEdgeIds.length)
+		expect(first.finalDeadEndCount).toBeLessThanOrEqual(first.initialDeadEndCount)
+		expect(countDegree(first.model, startNodeId)).toBe(countDegree(source, startNodeId))
+		expect(countDegree(first.model, goalNodeId)).toBe(countDegree(source, goalNodeId))
+
+		for (const edgeId of first.addedEdgeIds) {
+			const edge = first.model.edges[edgeId]
+			expect(draft.topology.neighborsByNodeId[edge.from]).toContain(edge.to)
+		}
+
+		expectMinimumCycleLengths(source, first.model, first.addedEdgeIds, 8)
 	})
 
 	it('prefers a straight continuation from the current dead end', () => {
@@ -161,6 +196,10 @@ function getCellId(nodeId: string | undefined): string {
 function countDegree(model: MazeModelV1, nodeId: string): number {
 	return Object.values(model.edges).filter((edge) => edge.from === nodeId || edge.to === nodeId)
 		.length
+}
+
+function cycleRank(model: MazeModelV1): number {
+	return Object.keys(model.edges).length - Object.keys(model.nodes).length + 1
 }
 
 function isConnected(model: MazeModelV1): boolean {

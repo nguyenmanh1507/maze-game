@@ -2,18 +2,21 @@
 	import { Canvas as FabricCanvas } from 'fabric'
 	import type { Canvas } from 'fabric'
 	import { onMount } from 'svelte'
+	import { braidMaze, type BraidMazeResult } from '$lib/maze/maze-braid-generator'
 	import { solveMazeDijkstra } from '$lib/maze/maze-dijkstra-solver'
 	import { generateRecursiveBacktrackerMaze } from '$lib/maze/maze-recursive-backtracker-generator'
-	import type { MazeModelV1 } from '$lib/maze/maze-model'
 	import { createPolarMaze } from '$lib/maze/polar-maze'
 	import { renderPolarMaze } from '$lib/maze/polar-maze-renderer'
 
+	const BRAID_SEED_SALT = 0x9e3779b9
+
 	let ringsText = $state('12')
+	let ratioText = $state('40')
 	let seedText = $state('')
 	let canvasElement = $state<HTMLCanvasElement>()
 	let fabricCanvas: Canvas | undefined
 	let errorMessage = $state('')
-	let generatedMaze = $state<MazeModelV1>()
+	let generatedResult = $state<BraidMazeResult>()
 	let generatedSeed = $state<number>()
 
 	function generateMaze(): void {
@@ -21,18 +24,28 @@
 
 		try {
 			const rings = parseRingCount(ringsText)
+			const ratioPercent = parseRatio(ratioText)
 			const seed = parseSeed(seedText)
 			const draft = createPolarMaze({ rings, boardRadius: 0.1, wallHeight: 0.012 })
-			const maze = generateRecursiveBacktrackerMaze(draft, { seed })
-			const solution = solveMazeDijkstra(maze)
-			const entranceNodeId = draft.polarLayout.rings.at(-1)?.[0]
+			const perfectMaze = generateRecursiveBacktrackerMaze(draft, { seed })
+			const entranceNodeId = getRequiredNodeId(draft.polarLayout.rings.at(-1)?.[0])
+			const goalNodeId = getRequiredNodeId(draft.polarLayout.rings[0]?.[0])
+			const result = braidMaze(perfectMaze, draft.topology, {
+				ratio: ratioPercent / 100,
+				seed: seed ^ BRAID_SEED_SALT,
+				preferDeadEndNeighbors: true,
+				preferStraight: true,
+				minCycleLength: 8,
+				protectedNodeIds: new Set([entranceNodeId, goalNodeId])
+			})
+			const solution = solveMazeDijkstra(result.model)
 
-			renderPolarMaze(fabricCanvas, maze, {
+			renderPolarMaze(fabricCanvas, result.model, {
 				entranceNodeId,
 				solutionNodeIds: solution.status === 'solved' ? solution.nodeIds : undefined
 			})
 
-			generatedMaze = maze
+			generatedResult = result
 			generatedSeed = seed
 			seedText = String(seed)
 			errorMessage = ''
@@ -51,6 +64,16 @@
 		return rings
 	}
 
+	function parseRatio(value: string | number): number {
+		const ratio = Number(value)
+
+		if (!Number.isFinite(ratio) || ratio < 0 || ratio > 100) {
+			throw new Error('Braid ratio must be between 0 and 100.')
+		}
+
+		return ratio
+	}
+
 	function parseSeed(value: string): number {
 		if (value.trim() === '') {
 			return Math.floor(Math.random() * 4_294_967_296)
@@ -63,6 +86,15 @@
 		}
 
 		return seed
+	}
+
+	function getRequiredNodeId(nodeId: string | undefined): string {
+		if (!nodeId) throw new Error('Polar maze endpoint is missing.')
+		return nodeId
+	}
+
+	function formatStatus(result: BraidMazeResult, seed: number): string {
+		return `${Object.keys(result.model.nodes).length} cells · ${Object.keys(result.model.edges).length} passages · dead ends ${result.initialDeadEndCount} → ${result.finalDeadEndCount} · removed ${result.actualRemovedCount}/${result.targetRemovedCount} · ${result.addedEdgeIds.length} loops · seed ${seed}`
 	}
 
 	function handleSubmit(event: SubmitEvent): void {
@@ -122,6 +154,23 @@
 					</span>
 				</label>
 
+				<label class="form-control max-w-xs gap-2" for="braid-ratio">
+					<span class="label-text font-medium">Braid ratio (%)</span>
+					<input
+						id="braid-ratio"
+						class="input-bordered input"
+						type="number"
+						min="0"
+						max="100"
+						step="5"
+						bind:value={ratioText}
+						aria-describedby="braid-ratio-help"
+					/>
+					<span id="braid-ratio-help" class="text-sm text-base-content/65">
+						Target percentage of eligible dead ends to remove.
+					</span>
+				</label>
+
 				<label class="form-control max-w-xs gap-2" for="maze-seed">
 					<span class="label-text font-medium">Seed</span>
 					<input
@@ -148,11 +197,10 @@
 				</div>
 
 				<p role="status" aria-live="polite">
-					{#if generatedMaze && generatedSeed !== undefined}
-						{Object.keys(generatedMaze.nodes).length} cells · {Object.keys(generatedMaze.edges)
-							.length} passages · seed {generatedSeed}
+					{#if generatedResult && generatedSeed !== undefined}
+						{formatStatus(generatedResult, generatedSeed)}
 					{:else}
-						Waiting for a valid ring count.
+						Waiting for valid polar braid settings.
 					{/if}
 				</p>
 			</div>

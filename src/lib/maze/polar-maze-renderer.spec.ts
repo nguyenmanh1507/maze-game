@@ -1,5 +1,8 @@
 import { Circle, Path } from 'fabric'
 import { describe, expect, it } from 'vitest'
+import { braidMaze } from './maze-braid-generator'
+import { solveMazeDijkstra } from './maze-dijkstra-solver'
+import { generateRecursiveBacktrackerMaze } from './maze-recursive-backtracker-generator'
 import type { MazeFabricCanvas } from './maze-renderer'
 import { createPolarMaze } from './polar-maze'
 import { renderPolarMaze } from './polar-maze-renderer'
@@ -36,5 +39,38 @@ describe('renderPolarMaze', () => {
 		expect(walls.some((wall) => wall.path.some((command) => command[0] === 'C'))).toBe(true)
 		expect(walls.some((wall) => wall.path.some((command) => command[0] === 'L'))).toBe(true)
 		expect(withEntrance.objects.length).toBe(complete.objects.length - 1)
+	})
+
+	it('removes walls for braided polar passages while retaining entrance, solution and features', () => {
+		const draft = createPolarMaze({ rings: 12 })
+		const perfectMaze = generateRecursiveBacktrackerMaze(draft, { seed: 42 })
+		const entranceNodeId = draft.polarLayout.rings.at(-1)?.[0]
+		const goalNodeId = draft.polarLayout.rings[0]?.[0]
+
+		if (!entranceNodeId || !goalNodeId) throw new Error('Expected polar maze endpoints.')
+
+		const braided = braidMaze(perfectMaze, draft.topology, {
+			ratio: 0.4,
+			seed: 42 ^ 0x9e3779b9,
+			minCycleLength: 8,
+			protectedNodeIds: new Set([entranceNodeId, goalNodeId])
+		})
+		const perfectSolution = solveMazeDijkstra(perfectMaze)
+		const braidedSolution = solveMazeDijkstra(braided.model)
+		const complete = renderPolarMaze(createCanvasDouble(), perfectMaze, {
+			entranceNodeId,
+			solutionNodeIds: perfectSolution.status === 'solved' ? perfectSolution.nodeIds : undefined
+		})
+		const rendered = renderPolarMaze(createCanvasDouble(), braided.model, {
+			entranceNodeId,
+			solutionNodeIds: braidedSolution.status === 'solved' ? braidedSolution.nodeIds : undefined
+		})
+
+		expect(braided.addedEdgeIds.length).toBeGreaterThan(0)
+		expect(rendered.objects).toHaveLength(complete.objects.length - braided.addedEdgeIds.length)
+		expect(rendered.objects.filter((object) => object instanceof Circle)).toHaveLength(3)
+		expect(
+			rendered.objects.some((object) => object instanceof Path && object.stroke === '#22c55e')
+		).toBe(true)
 	})
 })
