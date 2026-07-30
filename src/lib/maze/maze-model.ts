@@ -22,10 +22,28 @@ export interface PolarSectorGeometry {
 	endAngle: number
 }
 
+export interface HexCellGeometry {
+	type: 'hex'
+	row: number
+	column: number
+	radius: number
+	vertices: [Vec2, Vec2, Vec2, Vec2, Vec2, Vec2]
+}
+
+export interface TriangleCellGeometry {
+	type: 'triangle'
+	row: number
+	column: number
+	upright: boolean
+	vertices: [Vec2, Vec2, Vec2]
+}
+
+export type MazeCellGeometry = PolarSectorGeometry | HexCellGeometry | TriangleCellGeometry
+
 export interface MazeNode {
 	id: string
 	position: Vec2
-	geometry?: PolarSectorGeometry
+	geometry?: MazeCellGeometry
 }
 
 export interface MazeModelV1 {

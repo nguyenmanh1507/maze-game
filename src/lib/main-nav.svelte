@@ -11,6 +11,8 @@
 			<li><a href={resolve('/')}>Home</a></li>
 			<li><a href={resolve('/custom-shape')}>Maze Custom Shape</a></li>
 			<li><a href={resolve('/circle-maze')}>Circle Maze</a></li>
+			<li><a href={resolve('/hexa-maze')}>Hexa Maze</a></li>
+			<li><a href={resolve('/triangle-maze')}>Triangle Maze</a></li>
 			<!-- <li>
 				<details>
 					<summary>Parent</summary>
