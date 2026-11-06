@@ -14,6 +14,8 @@
 			<li><a href={resolve('/hexa-maze')}>Hexa Maze</a></li>
 			<li><a href={resolve('/triangle-maze')}>Triangle Maze</a></li>
 			<li><a href={resolve('/braid-maze')}>Braid Maze</a></li>
+			<li><a href={resolve('/labyrinth')}>Labyrinth 3D (Rapier)</a></li>
+			<li><a href={resolve('/labyrinth-jolt')}>Labyrinth 3D (Jolt)</a></li>
 			<!-- <li>
 				<details>
 					<summary>Parent</summary>
